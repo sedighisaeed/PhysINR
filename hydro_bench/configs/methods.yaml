@@ -1,0 +1,156 @@
+# Method registry.
+#
+# Each method declares:
+#   mode:      online  -> Mode A, executed by HydroBench through an adapter
+#              offline -> Mode B, pre-computed output directory is read directly
+#   runner:    process  -> in-process Python adapter (no env isolation)
+#              conda    -> isolated conda environment (`conda run -n <env>`)
+#              docker   -> isolated container (`docker run --gpus all ...`)
+#   adapter:   import path to a hydro_bench.methods.* adapter module
+#   env:       conda env name (runner: conda) or image tag (runner: docker)
+#
+# Methods absent from this file are still benchmarkable in Mode B by pointing
+# the CLI at a directory that follows the offline contract (see offline_importer).
+
+methods:
+  # ---- Classical / physical prior -----------------------------------------
+  UDCP:
+    mode: online
+    runner: process
+    adapter: hydro_bench.methods.classical.udcp.adapter
+    description: "Underwater Dark Channel Prior (Drews et al., 2013)."
+
+  Retinex:
+    mode: online
+    runner: process
+    adapter: hydro_bench.methods.classical.retinex.adapter
+    params: { scales: [15, 80, 250], sigma: 30.0 }
+    description: "Multi-scale Retinex (MSR) with color restoration."
+
+  # ---- Deep CNN / GAN ------------------------------------------------------
+  Water-Net:
+    mode: online
+    runner: conda
+    env: hydro_waternet            # python 3.7 / torch 1.7 reference env
+    adapter: hydro_bench.methods.deep.water_net.adapter
+    # Vendored as third_party/waternet_pytorch (tnwei/waternet), a PyTorch
+    # replication of Water-Net from Li et al., "An Underwater Image Enhancement
+    # Benchmark Dataset and Beyond", IEEE TIP 2019/2020 (arXiv:1901.05495).
+    repo: https://github.com/tnwei/waternet
+    # Checkpoint names resolve against HYDROBENCH_MODELS.
+    params: {checkpoint: waternet_exported_state_dict-daa0ee.pt}
+    description: "Water-Net (Li et al., 2019), learned medium transmission."
+
+  FUnIE-GAN:
+    mode: online
+    runner: docker
+    env: hydroml/funie-gan:latest
+    adapter: hydro_bench.methods.deep.funie_gan.adapter
+    repo: https://github.com/IRVLab/FUnIE-GAN
+    params: {checkpoint: funie_generator.pth}
+    description: "Fast Underwater Image Enhancement GAN (Islam et al., 2020)."
+
+  UIEC2-Net:
+    mode: online
+    runner: conda
+    env: hydro_uiec2
+    adapter: hydro_bench.methods.deep.uiec2_net.adapter
+    params: {checkpoint: uiec2_net.pth}
+    description: "UIEC^2-Net (Wang et al., Signal Process. Image Commun. 2021), dual color spaces."
+
+  Five-A+:
+    mode: online
+    runner: conda
+    env: hydro_fivea
+    adapter: hydro_bench.methods.deep.five_a_plus.adapter
+    params: {checkpoint: five_a_plus.pth}
+    description: "Five A+ Network (Jiang et al., BMVC 2023), ~9k-param two-stage enhancer."
+
+  TOPAL:
+    mode: online
+    runner: conda
+    env: hydro_topal
+    adapter: hydro_bench.methods.deep.topal.adapter
+    # The MSBDN-RDFF colour-correction stage; the DeepWB white-balance and
+    # WaterFusion stages ship inside the vendored repository.
+    params: {checkpoint: TOPAL_pretrained.pth}
+    description: "TOPAL (Liu et al., 2022), transformer + physical prior."
+
+  # ---- Transformers / frequency / diffusion / state-space (2024-2026) ------
+  Zero-DCE:
+    mode: online
+    runner: process
+    adapter: hydro_bench.methods.deep.zero_dce.adapter
+    repo: https://github.com/Li-Chongyi/Zero-DCE
+    # Vendored as third_party/zero_dce (official repository).
+    params: {checkpoint: zero_dce_epoch99.pth}
+    description: "Zero-Reference Deep Curve Estimation (Guo et al., CVPR 2020),
+      published low-light checkpoint applied zero-shot to underwater imagery."
+
+  Phaseformer:
+    mode: online
+    runner: process
+    adapter: hydro_bench.methods.deep.phaseformer.adapter
+    repo: https://github.com/Mdraqibkhan/Phaseformer
+    # Vendored as third_party/phaseformer (official repository). The authors
+    # publish whole pickled modules, not state dicts.
+    params: {checkpoint: phaseformer_uieb_best.pth}
+    description: "Phase-based attention Restormer (Khan et al., 2025), authors'
+      UIEB checkpoint; released inference resizes to 512x512."
+
+  U-Shape-Transformer:
+    mode: online
+    runner: conda
+    env: hydro_ust
+    adapter: hydro_bench.methods.deep.ust.adapter
+    params: {checkpoint: UST_generator_795.pth}
+    description: "U-Shape Transformer for UIR (Peng et al., 2023)."
+
+  WF-Diff:
+    mode: online
+    runner: conda
+    env: hydro_wfdiff              # python 3.10 / torch 2.4
+    adapter: hydro_bench.methods.deep.wf_diff.adapter
+    repo: https://github.com/ChenzhaoNju/WF-Diff   # CVPR 2024
+    description: "Wavelet-based Fourier information interaction with frequency diffusion."
+
+  WaterMamba:
+    mode: online
+    runner: conda
+    env: hydro_mamba
+    adapter: hydro_bench.methods.deep.water_mamba.adapter
+    # Runs the real network only where mamba_ssm CUDA kernels exist;
+    # otherwise the labelled analytic fallback takes the row.
+    params: {checkpoint: WaterMamba_pretrained.pth}
+    description: "State-space (Mamba) variant for underwater restoration."
+
+  # ---- Excluded from measurement -------------------------------------------
+  # UniUIR (Zhang et al., TIP 2025) publishes no checkpoint: the repository
+  # ships an empty src/checkpoints/, the project page links only to paper and
+  # code, and no mirror exists on HuggingFace, Zenodo, ModelScope, Kaggle or
+  # Gitee (each searched directly, 2026-09). The code also requires the
+  # CUDA-only mamba-ssm/causal-conv1d kernels, which have no build on this
+  # host. It is excluded rather than approximated by a reimplementation, and is
+  # compared only through its reported numbers in the related work.
+
+  # ---- This work ----------------------------------------------------------
+  # Zero-shot by construction: the meta-initialisation sees only synthetic
+  # degradations of clean terrestrial photographs, so `training_sets` is
+  # empty on purpose -- the leakage warning must never fire for this method.
+  PhysINR-Zero:
+    mode: online
+    runner: process
+    adapter: hydro_bench.methods.deep.physinr_zero.adapter
+    params: {checkpoint: physinr_zero_v4.pt}
+    description: "Physics-constrained implicit neural field with per-image
+      test-time adaptation (this work); zero-shot, no real underwater
+      training data."
+
+  # ---- Offline import (Mode B) --------------------------------------------
+  # `offline` methods require no code at all: only an output directory whose
+  # image filenames match the dataset's input filenames.
+  ExampleOffline:
+    mode: offline
+    runner: none
+    output_dir: ${ENV:HYDROBENCH_RESULTS}/example_offline/UIEB
+    description: "Placeholder for a pre-computed result tree (Mode B)."

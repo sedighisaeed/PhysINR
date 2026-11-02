@@ -1,0 +1,47 @@
+# Downstream application evaluation.
+#
+# The central claim HydroBench tests: does restoration improve *utility* in
+# real robotic/vision tasks, not just pixel similarity?
+#
+# protocol:
+#   frozen_raw    -> detector/segmenter is trained ONLY on raw (degraded)
+#                    images and never on enhanced ones. Enhanced images are
+#                    then scored by the same frozen model. Any delta therefore
+#                    measures the utility the enhancement adds.
+#   frozen_clean  -> model trained on clean/ground-truth imagery.
+
+detector:
+  # Frozen YOLO detector (YOLOv8n by default). Weights must exist on disk or
+  # in ULTRALYTICS_HOME; HydroBench never silently downloads anything.
+  weights: ${ENV:HYDROBENCH_MODELS}/yolov8n_duo.pt
+  architecture: yolov8n
+  imgsz: 640
+  conf: 0.001                    # low threshold so recall curve is meaningful
+  iou: 0.6
+  device: cpu                    # cpu | cuda:0
+
+segmenter:
+  weights: ${ENV:HYDROBENCH_MODELS}/suim_seg_unet.pth
+  architecture: unet
+  device: cpu
+
+matching:
+  detectors: [SIFT, ORB]
+  ratio_test: 0.75               # Lowe ratio test threshold
+  ransac_threshold: 5.0          # pixels
+  metrics:
+    - repeatability              # keypoint detection agreement across views
+    - inlier_ratio               # RANSAC-verified inliers / total matches
+
+reporting:
+  significance:
+    test: wilcoxon               # paired nonparametric signed-rank
+    alpha: 0.05
+    alternative: two-sided
+  ci:
+    method: bootstrap            # bootstrap | none
+    n_resamples: 10000
+    confidence: 0.95
+  highlight:
+    best: bold
+    second: underline

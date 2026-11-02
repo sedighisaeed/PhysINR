@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+title: "PhysINR-Zero: zero-shot underwater image enhancement with physics-constrained coordinate fields"
+message: >-
+  If you use this software or the benchmark results, please cite the
+  accompanying manuscript (IEEE Journal of Oceanic Engineering submission).
+authors:
+  - family-names: Hosseini
+    given-names: Ali
+    email: ali.hosseini7148@iau.ac.ir
+    affiliation: "Department of Computer Engineering, Shi.C. (Shiraz Branch), Islamic Azad University, Shiraz, Iran"
+  - family-names: Sedighi
+    given-names: Saeed
+    email: saeed.sedighi@iau.ac.ir
+    affiliation: "Department of Computer Engineering, Shi.C. (Shiraz Branch), Islamic Azad University, Shiraz, Iran"
+keywords:
+  - underwater image enhancement
+  - zero-shot learning
+  - physics-informed neural network
+  - test-time adaptation
+  - image quality assessment
+  - benchmarking
+license: MIT
+repository-code: "https://github.com/bornaseirco/PhysINR"
